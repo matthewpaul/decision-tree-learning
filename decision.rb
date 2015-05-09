@@ -1,5 +1,3 @@
-require 'set'
-
 class Example
 	def initialize(features)
 		@features = features
@@ -41,6 +39,52 @@ class Example
 	end
 end
 
+class ExampleSet
+	def initialize(examples)
+		@examples = examples
+		@positives = 0
+		@negatives = 0
+	end
+
+	def examples
+		@examples 
+	end
+
+	def examples=(value)
+		@examples = value
+	end
+
+	def positives
+		@positives
+	end
+
+	def positives=(value)
+		@positives = value
+	end
+
+	def negatives
+		@negatives
+	end
+
+	def negatives=(value)
+		@negatives = value
+	end
+
+	def calculate
+		self.examples.each do |e|
+			if e.outcome == true
+				self.positives += 1
+			else self.negatives += 1
+			end
+		end
+	end
+
+	def to_s
+		puts "[Positives: " + self.positives.to_s + "][Negatives: " + self.negatives.to_s + "]"
+	end
+
+end
+
 puts "Attempting to read " + ARGV.first
 
 File.open(ARGV.first, 'r') do |f1|
@@ -51,8 +95,10 @@ end
 
 lines = 0
 positiveOutcome = nil
+initialSet = nil
 # Count the number of lines in the file, split each line, and separate into features and outcomes
 File.open(ARGV.first, 'r') do |f|
+	exampleArray = Array.new
 	while line = f.gets
 		featureArray = line.split(",")
 		featureArray.last.delete!("\n")
@@ -72,9 +118,33 @@ File.open(ARGV.first, 'r') do |f|
 		example = Example.new(featureValues[0..featureValues.size-2])
 		thisOutcome = featureValues.last
 		example.classify(positiveOutcome, thisOutcome)
-		example.to_s
+		exampleArray.push(example)
 		lines += 1
 	end
+	initialSet = ExampleSet.new(exampleArray)
 end
 
-puts "There are " + lines.to_s + " sets of data in this file."
+initialSet.calculate
+initialSet.to_s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
