@@ -87,15 +87,18 @@ end
 
 puts "Attempting to read " + ARGV.first
 
-File.open(ARGV.first, 'r') do |f1|
-	while line = f1.gets
-		puts line
-	end
-end
-
-lines = 0
+########################## Initialize Program Variables Here #################################
+# The user will need to specify the field of the outcome as the second argument to the program
+# Outcome field indexing starts at 0
+outcomeField = ARGV[1].to_i
+lineNum = 0
 positiveOutcome = nil
+thisOutcome = nil
 initialSet = nil
+
+
+
+########################## Begin program code Here ###########################################
 # Count the number of lines in the file, split each line, and separate into features and outcomes
 File.open(ARGV.first, 'r') do |f|
 	exampleArray = Array.new
@@ -106,20 +109,23 @@ File.open(ARGV.first, 'r') do |f|
 		featureArray.each do |feature|
 			feature.lstrip!
 		end
-		featureValues = featureArray.map(&:to_i)
 
-		# We use the first seen outcome value as the "positive" outcome
-		# value even though it may not be the actual positive value. 
-		# This allows the program to operate on arbitrary size and style
-		# of data sets. 
-		if lines == 0
-			positiveOutcome = featureValues.last
+		featureValues = Array.new
+		for i in 0..featureArray.size-1
+			if (i == outcomeField) && (lineNum == 0)
+				positiveOutcome = featureArray[i]
+				thisOutcome = featureArray[i]
+			elsif (i == outcomeField)
+				thisOutcome = featureArray[i]
+			else 
+				featureValues.push(featureArray[i].to_i) 
+			end
 		end
-		example = Example.new(featureValues[0..featureValues.size-2])
-		thisOutcome = featureValues.last
+		puts featureValues.to_s
+		example = Example.new(featureValues)
 		example.classify(positiveOutcome, thisOutcome)
 		exampleArray.push(example)
-		lines += 1
+		lineNum += 1
 	end
 	initialSet = ExampleSet.new(exampleArray)
 end
