@@ -79,6 +79,15 @@ class ExampleSet
 		end
 	end
 
+	def entropy 
+		total = self.positives + self.negatives
+		yes = self.positives.to_f/total
+		no = self.negatives.to_f/total
+
+		entropy = -(yes * Math::log(yes, 2)) - (no * Math::log(no, 2))
+		return entropy
+	end
+
 	def to_s
 		puts "[Positives: " + self.positives.to_s + "][Negatives: " + self.negatives.to_s + "]"
 	end
@@ -132,6 +141,7 @@ end
 
 initialSet.calculate
 initialSet.to_s
+puts "Initial set entropy = " + initialSet.entropy.to_s
 
 
 
