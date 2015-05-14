@@ -85,11 +85,13 @@ class ExampleSet
 		no = self.negatives.to_f/total
 
 		entropy = -(yes * Math::log(yes, 2)) - (no * Math::log(no, 2))
-		return entropy
+		if entropy.nan?
+			return 0
+		else return entropy
+		end
 	end
 
-	#This function takes an integer that defines which feature is being split on
-	def featureSplit(feature)
+	def featureEntropy(feature)
 		#features is used to calculate the number of different attributes
 		features = Array.new
 		#groups is an array used to store the results of splitting on each attribute
@@ -98,7 +100,6 @@ class ExampleSet
 			features.push(e.features[feature])
 		end
 		features.uniq!
-		puts features.size.to_s + " unique attributes for feature " + feature.to_s
 		features.each do |f|
 			#create a new example set that matches this feature attribute
 			examples = Array.new
@@ -112,11 +113,24 @@ class ExampleSet
 				groups.push(currentExampleSet)
 			end
 		end
-
+		entropy = 0
+		numExamples = 0
 		groups.each do |item|
 			item.calculate
-			item.to_s
+			numExamples += item.positives + item.negatives
 		end
+		groups.each do |i|
+			total = i.positives + i.negatives
+			probability = (total.to_f / numExamples)
+			entropy = entropy + (i.entropy * probability)
+		end
+		return entropy
+	end
+
+	# Feature is an integer defining which feature to calculate
+	# information gain for
+	def gain(feature)
+		return self.entropy - self.featureEntropy(feature)
 	end
 
 	def to_s
@@ -176,7 +190,8 @@ end
 initialSet.calculate
 initialSet.to_s
 puts "Initial set entropy = " + initialSet.entropy.to_s
-initialSet.featureSplit(0)
+puts "Feature 0 Entropy: " + initialSet.featureEntropy(0).to_s
+puts "Gain: " + initialSet.gain(0).to_s
 
 
 
