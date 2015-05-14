@@ -32,10 +32,10 @@ class Example
 
 	def to_s 
 		puts self.features.to_s
-		if self.outcome == true
-			puts "Positive"
-		else puts "Negative"
-		end
+		#if self.outcome == true
+		#	puts "Positive"
+		#else puts "Negative"
+		#end
 	end
 end
 
@@ -88,8 +88,42 @@ class ExampleSet
 		return entropy
 	end
 
+	#This function takes an integer that defines which feature is being split on
+	def featureSplit(feature)
+		#features is used to calculate the number of different attributes
+		features = Array.new
+		#groups is an array used to store the results of splitting on each attribute
+		groups = Array.new
+		self.examples.each do |e|
+			features.push(e.features[feature])
+		end
+		features.uniq!
+		puts features.size.to_s + " unique attributes for feature " + feature.to_s
+		features.each do |f|
+			#create a new example set that matches this feature attribute
+			examples = Array.new
+			self.examples.each do |example|
+				if example.features[feature] == f
+					examples.push(example)
+				end
+			end
+			if examples != nil
+				currentExampleSet = ExampleSet.new(examples)
+				groups.push(currentExampleSet)
+			end
+		end
+
+		groups.each do |item|
+			item.calculate
+			item.to_s
+		end
+	end
+
 	def to_s
-		puts "[Positives: " + self.positives.to_s + "][Negatives: " + self.negatives.to_s + "]"
+		puts "[Positives: " + self.positives.to_s + "][Negatives: " + self.negatives.to_s + "] {Entropy = " + self.entropy.to_s + "}"
+		self.examples.each do |e|
+			e.to_s
+		end
 	end
 
 end
@@ -142,6 +176,7 @@ end
 initialSet.calculate
 initialSet.to_s
 puts "Initial set entropy = " + initialSet.entropy.to_s
+initialSet.featureSplit(0)
 
 
 
