@@ -42,6 +42,7 @@ end
 class ExampleSet
 	def initialize(examples)
 		@examples = examples
+		@featureCount = 0
 		@positives = 0
 		@negatives = 0
 	end
@@ -70,6 +71,14 @@ class ExampleSet
 		@negatives = value
 	end
 
+	def featureCount
+		@featureCount
+	end
+
+	def featureCount=(value)
+		@featureCount = value
+	end
+
 	def calculate
 		self.examples.each do |e|
 			if e.outcome == true
@@ -77,6 +86,7 @@ class ExampleSet
 			else self.negatives += 1
 			end
 		end
+		self.featureCount = self.examples.first.features.size
 	end
 
 	def entropy 
@@ -131,6 +141,21 @@ class ExampleSet
 	# information gain for
 	def gain(feature)
 		return self.entropy - self.featureEntropy(feature)
+	end
+
+	# Determines the best feature to split on based on finding
+	# the feature with the most information gain
+	def splitOn?
+		maxGain = 0
+		bestFeature = nil
+		for i in 0..self.featureCount-1
+			gain = self.gain(i)
+			if gain >= maxGain
+				maxGain = gain
+				bestFeature = i
+			end
+		end
+		return bestFeature
 	end
 
 	def to_s
@@ -190,8 +215,8 @@ end
 initialSet.calculate
 initialSet.to_s
 puts "Initial set entropy = " + initialSet.entropy.to_s
-puts "Feature 0 Entropy: " + initialSet.featureEntropy(0).to_s
-puts "Gain: " + initialSet.gain(0).to_s
+bestFeature = initialSet.splitOn?
+puts "Best feature = " + bestFeature.to_s + ", Gain: " + initialSet.gain(bestFeature).to_s
 
 
 
