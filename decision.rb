@@ -31,11 +31,12 @@ class Example
 	end
 
 	def to_s 
-		puts self.features.to_s
-		#if self.outcome == true
-		#	puts "Positive"
-		#else puts "Negative"
-		#end
+		print self.features.to_s + " "
+		if self.outcome 
+			puts "+"
+		else
+			puts "-"
+		end
 	end
 end
 
@@ -143,6 +144,17 @@ class ExampleSet
 		return self.entropy - self.featureEntropy(feature)
 	end
 
+	# Returns a boolean value that determines whether the example set contains values of 
+	# only one type of outcome. 
+	def pure? 
+		if self.positives == 0 && self.negatives != 0
+			return true
+		elsif self.negatives == 0 && self.positives != 0
+			return true
+		else return false
+		end
+	end
+
 	# Determines the best feature to split on based on finding
 	# the feature with the most information gain
 	def splitOn?
@@ -158,6 +170,29 @@ class ExampleSet
 		return bestFeature
 	end
 
+	def getValues(field)
+		values = Array.new
+		self.examples.each do |e|
+			values.push(e.features[field])
+		end
+		values.uniq!
+		return values
+	end
+
+	# returns a portion of the set that has a matching value at the given 
+	# field
+	def giveMe(field, value)
+		examples = Array.new
+		self.examples.each do |e|
+			if e.features[field] == value
+				examples.push(e)
+			end
+		end
+		set = ExampleSet.new(examples)
+		set.calculate
+		return set
+	end
+
 	def to_s
 		puts "[Positives: " + self.positives.to_s + "][Negatives: " + self.negatives.to_s + "] {Entropy = " + self.entropy.to_s + "}"
 		self.examples.each do |e|
@@ -166,6 +201,84 @@ class ExampleSet
 	end
 
 end
+
+
+class DecisionTreeNode
+	def initialize(field, outcome, exampleHash)
+		@field = field
+		@outcome = outcome
+		@splitOnSoFar = Array.new
+		@exampleHash = exampleHash
+	end
+
+	def field
+		@field
+	end
+
+	def outcome
+		@outcome
+	end
+
+	def splitOnSoFar
+		@splitOnSoFar
+	end
+
+	def exampleHash
+		@exampleHash
+	end
+
+	def field=(value)
+		@field = value
+	end
+
+	def outcome=(value)
+		@outcome = value
+	end
+
+	def exampleHash=(value)
+		@exampleHash=(value)
+	end
+
+	def splitOnSoFar=(value)
+		@splitOnSoFar = value
+	end
+end
+
+def buildTree(set)
+	if set.examples.empty?
+		node = DecisionTreeNode.new(nil, "Failure", nil)
+		puts "failure"
+		return node
+	elsif set.pure?
+		node = DecisionTreeNode.new(nil, set.examples.first.outcome, nil)
+		puts "pure set"
+		return node
+	else 
+		currentSplit = set.splitOn?
+		puts "splitting on " + currentSplit.to_s
+		hash = Hash.new
+		branches = set.getValues(currentSplit)
+		branches.each do |b|
+			exampleSet = set.giveMe(currentSplit, b)
+			hash[b] = buildTree(exampleSet)
+		end
+		node = DecisionTreeNode.new(currentSplit, nil, hash)
+		return node
+	end
+
+end
+
+def decide(node, example)
+	if node.outcome == "Failure"
+		puts "Failed to Classify"
+	elsif node.field == nil
+		puts "Decided: " + node.outcome.to_s
+	else
+		decide(node.exampleHash[example.features[node.field]], example)
+	end
+end
+
+
 
 puts "Attempting to read " + ARGV.first
 
@@ -217,9 +330,13 @@ initialSet.to_s
 puts "Initial set entropy = " + initialSet.entropy.to_s
 bestFeature = initialSet.splitOn?
 puts "Best feature = " + bestFeature.to_s + ", Gain: " + initialSet.gain(bestFeature).to_s
+tree = buildTree(initialSet)
 
+# Testing the use of the decision tree
+someFeatures = [0, 3, 5, 6]
+classifyMe = Example.new(someFeatures)
 
-
+decide(tree, classifyMe)
 
 
 
