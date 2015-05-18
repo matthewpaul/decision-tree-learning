@@ -167,6 +167,9 @@ class ExampleSet
 				bestFeature = i
 			end
 		end
+		if maxGain == 0
+			bestFeature = rand(0..self.featureCount-1)
+		end
 		return bestFeature
 	end
 
@@ -242,6 +245,17 @@ class DecisionTreeNode
 	def splitOnSoFar=(value)
 		@splitOnSoFar = value
 	end
+
+	def to_s
+		puts "-------------------"
+		if field != nil 
+			puts "Attr: " + field.to_s
+		end
+		if outcome != nil
+			puts "Outcome: " + outcome.to_s
+		end
+		puts "-------------------"
+	end
 end
 
 def buildTree(set)
@@ -269,13 +283,70 @@ def buildTree(set)
 end
 
 def decide(node, example)
-	if node.outcome == "Failure"
-		puts "Failed to Classify"
-	elsif node.field == nil
-		puts "Decided: " + node.outcome.to_s
-	else
-		decide(node.exampleHash[example.features[node.field]], example)
+	if node != nil
+		if node.outcome == "Failure"
+			puts "Failed to Classify"
+			return nil
+		elsif node.field == nil
+			example.outcome = node.outcome
+			#puts "Decided: " + node.outcome.to_s
+			return node.outcome
+		else
+			if node.exampleHash.has_key?(example.features[node.field])
+				decide(node.exampleHash[example.features[node.field]], example)
+			else
+				puts "We'll need to make an estimate, no prior information about this one."
+				return nil
+			end
+		end
+	else puts "nil node"
 	end
+end
+
+# Will assume that the last value of each line is the actual intended outcome
+# in order to determine the success of the tree
+def analyzeTestSet(testFile, tree, positiveValue, outcomeField)
+	correctCount = 0
+	incorrectCount = 0
+	text = File.open(testFile).read
+	text.gsub!(/\r\n?/, "\n")
+	text.each_line do |line|
+		featureArray = line.split(",")
+		featureArray.last.delete!("\n")
+		# remove whitespace from features
+		featureArray.each do |feature|
+			feature.lstrip!
+		end
+
+		featureValues = Array.new
+		for i in 0..featureArray.size-1
+			if i != outcomeField
+				featureValues.push(featureArray[i].to_i) 
+			end
+		end
+		example = Example.new(featureValues)
+		thisValue = featureArray[outcomeField]
+		decision = decide(tree, example)
+		if decision == true
+			if thisValue.eql?(positiveValue)
+				puts "CORRECT"
+				correctCount += 1
+			else
+				puts "INCORRECT"
+				incorrectCount += 1
+			end
+		else
+			if thisValue != positiveValue
+				puts "CORRECT"
+				correctCount += 1
+			else 
+				puts "INCORRECT"
+				incorrectCount += 1
+			end
+		end
+	end
+	percentage = (correctCount.to_f / (correctCount + incorrectCount))
+	puts "Accuracy: " + percentage.to_s + " on test data"
 end
 
 
@@ -295,34 +366,57 @@ initialSet = nil
 
 ########################## Begin program code Here ###########################################
 # Count the number of lines in the file, split each line, and separate into features and outcomes
-File.open(ARGV.first, 'r') do |f|
-	exampleArray = Array.new
-	while line = f.gets
-		featureArray = line.split(",")
-		featureArray.last.delete!("\n")
-		# remove whitespace from features
-		featureArray.each do |feature|
-			feature.lstrip!
-		end
-
+if File.extname(ARGV.first) == ".csv"
+	CSV.foreach(ARGV.first) do |row|
 		featureValues = Array.new
-		for i in 0..featureArray.size-1
-			if (i == outcomeField) && (lineNum == 0)
-				positiveOutcome = featureArray[i]
-				thisOutcome = featureArray[i]
-			elsif (i == outcomeField)
-				thisOutcome = featureArray[i]
-			else 
-				featureValues.push(featureArray[i].to_i) 
+			for i in 0..row.size-1
+				if (i == outcomeField) && (lineNum == 0)
+					positiveOutcome = row[i]
+					thisOutcome = row[i]
+				elsif (i == outcomeField)
+					thisOutcome = row[i]
+				else 
+					featureValues.push(row[i].to_i) 
+				end
 			end
+			puts featureValues.to_s
+			example = Example.new(featureValues)
+			example.classify(positiveOutcome, thisOutcome)
+			exampleArray.push(example)
+			lineNum += 1
 		end
-		puts featureValues.to_s
-		example = Example.new(featureValues)
-		example.classify(positiveOutcome, thisOutcome)
-		exampleArray.push(example)
-		lineNum += 1
-	end
-	initialSet = ExampleSet.new(exampleArray)
+		initialSet = ExampleSet.new(exampleArray)
+else
+	exampleArray = Array.new
+	text = File.open(ARGV.first).read
+	text.gsub!(/\r\n?/, "\n")
+	text.each_line do |line|
+
+			featureArray = line.split(",")
+			featureArray.last.delete!("\n")
+			# remove whitespace from features
+			featureArray.each do |feature|
+				feature.lstrip!
+			end
+
+			featureValues = Array.new
+			for i in 0..featureArray.size-1
+				if (i == outcomeField) && (lineNum == 0)
+					positiveOutcome = featureArray[i]
+					thisOutcome = featureArray[i]
+				elsif (i == outcomeField)
+					thisOutcome = featureArray[i]
+				else 
+					featureValues.push(featureArray[i].to_i) 
+				end
+			end
+			puts featureValues.to_s
+			example = Example.new(featureValues)
+			example.classify(positiveOutcome, thisOutcome)
+			exampleArray.push(example)
+			lineNum += 1
+		end
+		initialSet = ExampleSet.new(exampleArray)
 end
 
 initialSet.calculate
@@ -330,14 +424,19 @@ initialSet.to_s
 puts "Initial set entropy = " + initialSet.entropy.to_s
 bestFeature = initialSet.splitOn?
 puts "Best feature = " + bestFeature.to_s + ", Gain: " + initialSet.gain(bestFeature).to_s
+puts "*********** Building Tree *********"
 tree = buildTree(initialSet)
 
 # Testing the use of the decision tree
-someFeatures = [0, 3, 5, 6]
+someFeatures = [10,10,10,4,8,1,8,10,1]
 classifyMe = Example.new(someFeatures)
 
-decide(tree, classifyMe)
-
+puts "******** Making Decisions *********"
+if ARGV.size > 3
+	analyzeTestSet(ARGV[2], tree, positiveOutcome, ARGV[3].to_i)
+elsif ARGV.size == 3
+	puts "You'll need to specify test set location and outcome field"
+end
 
 
 
