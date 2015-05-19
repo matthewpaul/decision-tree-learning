@@ -24,23 +24,9 @@ class Example
 		@outcome = value
 	end
 
-	# The classify method will take a positive outcome value
-	# and classify example
-	# outcomes based on this feature.
-	def classify(positiveOutcome, thisOutcome)
-		if thisOutcome == positiveOutcome
-			self.outcome = true
-		else self.outcome = false
-		end
-	end
-
-	def to_s 
-		print self.features.to_s + " "
-		if self.outcome 
-			puts "+"
-		else
-			puts "-"
-		end
+	def to_s
+		puts self.features.to_s
+		puts self.outcome.to_s
 	end
 end
 
@@ -48,8 +34,7 @@ class ExampleSet
 	def initialize(examples)
 		@examples = examples
 		@featureCount = 0
-		@positives = 0
-		@negatives = 0
+		@tally = Hash.new
 	end
 
 	def examples
@@ -60,20 +45,12 @@ class ExampleSet
 		@examples = value
 	end
 
-	def positives
-		@positives
+	def tally
+		@tally
 	end
 
-	def positives=(value)
-		@positives = value
-	end
-
-	def negatives
-		@negatives
-	end
-
-	def negatives=(value)
-		@negatives = value
+	def tally=(value)
+		@tally = value
 	end
 
 	def featureCount
@@ -85,28 +62,39 @@ class ExampleSet
 	end
 
 	def calculate
+		possibleOutcomes = Array.new
 		self.examples.each do |e|
-			if e.outcome == true
-				self.positives += 1
-			else self.negatives += 1
-			end
+			possibleOutcomes.push(e.outcome)
+		end
+		possibleOutcomes.uniq!
+		possibleOutcomes.each do |o|
+			self.tally[o] = 0
+		end
+		self.examples.each do |e|
+			self.tally[e.outcome] += 1
 		end
 		self.featureCount = self.examples.first.features.size
 	end
 
-	def entropy 
-		total = self.positives + self.negatives
-		yes = self.positives.to_f/total
-		no = self.negatives.to_f/total
+	def freq(outcome)
+		total = 0
+		self.tally.each_value {|value| total += value}
+		return self.tally[outcome] / total.to_f
+	end
 
-		entropy = -(yes * Math::log(yes, 2)) - (no * Math::log(no, 2))
-		if entropy.nan?
+	def info
+		total = 0
+		info = 0
+		self.tally.each_value {|value| total += value}
+		self.tally.each_key {|key| info += ((self.freq(key)/total) * Math::log(self.freq(key)/total, 2))}
+		if info.nan?
 			return 0
-		else return entropy
+		else 
+			return -info
 		end
 	end
 
-	def featureEntropy(feature)
+	def featureInfo(feature)
 		#features is used to calculate the number of different attributes
 		features = Array.new
 		#groups is an array used to store the results of splitting on each attribute
@@ -128,34 +116,38 @@ class ExampleSet
 				groups.push(currentExampleSet)
 			end
 		end
-		entropy = 0
+		info = 0
 		numExamples = 0
 		groups.each do |item|
 			item.calculate
-			numExamples += item.positives + item.negatives
+			item.tally.each_value {|value| numExamples += value}
 		end
 		groups.each do |i|
-			total = i.positives + i.negatives
-			probability = (total.to_f / numExamples)
-			entropy = entropy + (i.entropy * probability)
+			total = 0
+			i.tally.each_value {|value| total += value}
+			info += (total.to_f / numExamples) * i.info
 		end
-		return entropy
+		return info
 	end
 
 	# Feature is an integer defining which feature to calculate
 	# information gain for
 	def gain(feature)
-		return self.entropy - self.featureEntropy(feature)
+		return self.info - self.featureInfo(feature)
 	end
 
 	# Returns a boolean value that determines whether the example set contains values of 
 	# only one type of outcome. 
 	def pure? 
-		if self.positives == 0 && self.negatives != 0
+		outcomes = Array.new
+		self.examples.each do |e|
+			outcomes.push(e.outcome)
+		end
+		outcomes.uniq!
+		if outcomes.size == 1
 			return true
-		elsif self.negatives == 0 && self.positives != 0
-			return true
-		else return false
+		else 
+			return false
 		end
 	end
 
@@ -201,10 +193,7 @@ class ExampleSet
 	end
 
 	def to_s
-		puts "[Positives: " + self.positives.to_s + "][Negatives: " + self.negatives.to_s + "] {Entropy = " + self.entropy.to_s + "}"
-		self.examples.each do |e|
-			e.to_s
-		end
+		self.tally.each {|key, value| puts key.to_s + " ** " + value.to_s }
 	end
 
 end
@@ -293,7 +282,7 @@ def decide(node, example)
 				decide(node.exampleHash[example.features[node.field]], example)
 			else
 				puts "We'll need to make an estimate, no prior information about this one."
-				return nil
+				return rand(0..9)
 			end
 		end
 	else puts "nil node"
@@ -302,44 +291,29 @@ end
 
 # Will assume that the last value of each line is the actual intended outcome
 # in order to determine the success of the tree
-def analyzeTestSet(testFile, tree, positiveValue, outcomeField)
+def analyzeTestSet(testFile, tree, outcomeField)
 	correctCount = 0
 	incorrectCount = 0
-	text = File.open(testFile).read
-	text.gsub!(/\r\n?/, "\n")
-	text.each_line do |line|
-		featureArray = line.split(",")
-		featureArray.last.delete!("\n")
-		# remove whitespace from features
-		featureArray.each do |feature|
-			feature.lstrip!
-		end
 
+	CSV.foreach(testFile) do |row|
+		outcome = nil
 		featureValues = Array.new
-		for i in 0..featureArray.size-1
-			if i != outcomeField
-				featureValues.push(featureArray[i].to_i) 
+		for i in 0..row.size-1
+			if (i == outcomeField)
+				outcome = row[i]
+			else 
+				featureValues.push(row[i].to_i) 
 			end
 		end
 		example = Example.new(featureValues)
-		thisValue = featureArray[outcomeField]
+		example.outcome = outcome
 		decision = decide(tree, example)
-		if decision == true
-			if thisValue.eql?(positiveValue)
-				puts "CORRECT"
-				correctCount += 1
-			else
-				puts "INCORRECT"
-				incorrectCount += 1
-			end
+		if outcome.eql?(decision)
+			puts "CORRECT: " + outcome.to_s + " " + decision.to_s 
+			correctCount += 1
 		else
-			if thisValue != positiveValue
-				puts "CORRECT"
-				correctCount += 1
-			else 
-				puts "INCORRECT"
-				incorrectCount += 1
-			end
+			puts "INCORRECT"
+			incorrectCount += 1
 		end
 	end
 	percentage = (correctCount.to_f / (correctCount + incorrectCount))
@@ -363,28 +337,25 @@ initialSet = nil
 
 ########################## Begin program code Here ###########################################
 # Count the number of lines in the file, split each line, and separate into features and outcomes
+exampleArray = Array.new
 if File.extname(ARGV.first) == ".csv"
 	CSV.foreach(ARGV.first) do |row|
+		outcome = nil
 		featureValues = Array.new
-			for i in 0..row.size-1
-				if (i == outcomeField) && (lineNum == 0)
-					positiveOutcome = row[i]
-					thisOutcome = row[i]
-				elsif (i == outcomeField)
-					thisOutcome = row[i]
-				else 
-					featureValues.push(row[i].to_i) 
-				end
+		for i in 0..row.size-1
+			if (i == outcomeField)
+				outcome = row[i]
+			else 
+				featureValues.push(row[i].to_i) 
 			end
-			puts featureValues.to_s
-			example = Example.new(featureValues)
-			example.classify(positiveOutcome, thisOutcome)
-			exampleArray.push(example)
-			lineNum += 1
 		end
-		initialSet = ExampleSet.new(exampleArray)
+		puts featureValues.to_s
+		example = Example.new(featureValues)
+		example.outcome = outcome
+		exampleArray.push(example)
+	end
+	initialSet = ExampleSet.new(exampleArray)
 else
-	exampleArray = Array.new
 	text = File.open(ARGV.first).read
 	text.gsub!(/\r\n?/, "\n")
 	text.each_line do |line|
@@ -418,7 +389,7 @@ end
 
 initialSet.calculate
 initialSet.to_s
-puts "Initial set entropy = " + initialSet.entropy.to_s
+puts "Initial set info = " + initialSet.info.to_s
 bestFeature = initialSet.splitOn?
 puts "Best feature = " + bestFeature.to_s + ", Gain: " + initialSet.gain(bestFeature).to_s
 puts "*********** Building Tree *********"
@@ -426,13 +397,12 @@ tree = buildTree(initialSet)
 
 puts "******** Making Decisions *********"
 if ARGV.size > 3
-	analyzeTestSet(ARGV[2], tree, positiveOutcome, ARGV[3].to_i)
+	analyzeTestSet(ARGV[2], tree, ARGV[3].to_i)
 elsif ARGV.size == 3
 	puts "You'll need to specify test set location AND outcome field"
 end
 puts $recursiveCalls.to_s + " nodes in the tree"
 
-tree.exampleHash[0].to_s
 
 
 
