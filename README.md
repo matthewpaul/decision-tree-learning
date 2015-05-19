@@ -1,5 +1,5 @@
 # decision-tree-learning
-This program utilized decision tree learning in order to predict outcomes. In order to run the program execute the program as follows. 
+This program utilizes decision tree learning in order to predict outcomes. In order to run the program execute the program as follows. 
 
 ```
 ruby decision.rb 'training set directory' 'outcome field' 'test set directory' 'outcome field'
